@@ -1,0 +1,3 @@
+# Provide a list of target Snyk Org IDs to replicate the GHCA integration to.
+# Add each Org ID on its own line
+# ex. 12345678-abcd-ef00-1234-0000abcd1234
