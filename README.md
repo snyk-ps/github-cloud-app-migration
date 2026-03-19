@@ -1,0 +1,86 @@
+# GitHub Cloud App — group-wide integration clone
+
+This repository contains a small Bash utility that clones an existing **GitHub Cloud App** org integration from a **source Snyk Organization** to **every other Organization** in a **Snyk Group**, using the Snyk **v1 Integrations** API (`POST …/integrations/{integrationId}/clone`).
+
+## Prerequisites
+
+- **Snyk Enterprise** access and an API token with permission to call the v1 API ([authentication](https://docs.snyk.io/snyk-api/v1-api)).
+- **Groups** (and related org administration) enabled where Snyk requires it for integration cloning—see [Clone an integration across your Snyk Organizations](https://docs.snyk.io/snyk-platform-administration/snyk-broker/classic-broker/clone-an-integration-across-your-snyk-organizations) for product context.
+- Shell tools: **`curl`**, **`jq`**.
+
+## Script
+
+| File | Purpose |
+|------|---------|
+| [`clone-github-cloud-app-to-group-orgs.sh`](./clone-github-cloud-app-to-group-orgs.sh) | Lists orgs in a group, resolves the GitHub Cloud App integration in the source org, then clones it to each other org. |
+
+Make it executable once:
+
+```bash
+chmod +x clone-github-cloud-app-to-group-orgs.sh
+```
+
+## Environment variables
+
+### Required
+
+| Variable | Description |
+|----------|-------------|
+| `SNYK_API_KEY` | Snyk API token. Sent as `Authorization: token …` to the v1 API. |
+| `SNYK_GROUP_ID` | Public ID of the Snyk Group whose organizations should receive the clone. |
+| `SNYK_SOURCE_ORG_ID` | Public ID of the organization that **already** has the GitHub Cloud App integration configured (the clone **source**). |
+
+### Optional
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SNYK_API_BASE` | `https://api.snyk.io/v1` | Override for other regions, e.g. `https://api.eu.snyk.io/v1`. |
+| `SNYK_INTEGRATION_TYPE` | `github-cloud-app` | Path segment used with `GET /org/{orgId}/integrations/{type}` to resolve the integration id when `SNYK_INTEGRATION_ID` is unset. |
+| `SNYK_INTEGRATION_ID` | *(unset)* | If set, skips the lookup above; must be the integration’s public id in the source org. |
+| `SNYK_DRY_RUN` | `0` | Set to `1` to **not** call the clone endpoint; prints what would be posted for each destination org. Discovery (`GET` group orgs, `GET` integration) still runs. |
+| `SNYK_PER_PAGE` | `100` | Page size for listing group orgs (v1 maximum is 100). |
+
+Treat `SNYK_API_KEY` as a secret: avoid committing it, and prefer a password manager or `read -s` over leaving it in shell history.
+
+## Usage
+
+1. Export the required variables (and any optional ones you need).
+
+2. **Recommended:** run a dry run first to confirm the destination org list and that the source integration resolves:
+
+   ```bash
+   export SNYK_API_KEY="…"
+   export SNYK_GROUP_ID="…"
+   export SNYK_SOURCE_ORG_ID="…"
+
+   SNYK_DRY_RUN=1 ./clone-github-cloud-app-to-group-orgs.sh
+   ```
+
+3. Run without `SNYK_DRY_RUN` (or with `SNYK_DRY_RUN=0`) to perform the clones:
+
+   ```bash
+   ./clone-github-cloud-app-to-group-orgs.sh
+   ```
+
+One-liner style:
+
+```bash
+SNYK_API_KEY="…" SNYK_GROUP_ID="…" SNYK_SOURCE_ORG_ID="…" ./clone-github-cloud-app-to-group-orgs.sh
+```
+
+The script **skips** the source org (it only clones **to** other orgs in the group).
+
+## Exit status
+
+- **0** — All clone requests succeeded (or dry-run completed without clone calls).
+- **Non-zero** — Initialization error, missing tools, or at least one clone request failed. Check stderr and the per-org error lines.
+
+## API references
+
+- [Integrations (v1)](https://docs.snyk.io/snyk-api/reference/integrations-v1) — clone and integration-by-type endpoints.
+- [Groups (v1)](https://docs.snyk.io/snyk-api/reference/groups-v1) — list organizations in a group.
+
+## Finding IDs
+
+- **Group and organization public IDs** appear in the Snyk UI (org/group settings) and in API responses.
+- Your token must be allowed to **list orgs** in the group and to **view/edit integrations** on the source and destination organizations, per the v1 reference for each endpoint.
