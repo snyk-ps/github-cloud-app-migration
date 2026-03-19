@@ -29,7 +29,7 @@ set -euo pipefail
 readonly SNYK_API_BASE="${SNYK_API_BASE:-https://api.snyk.io/v1}"
 readonly SNYK_INTEGRATION_TYPE="${SNYK_INTEGRATION_TYPE:-github-cloud-app}"
 readonly SNYK_PER_PAGE="${SNYK_PER_PAGE:-100}"
-readonly SNYK_DRY_RUN="${SNYK_DRY_RUN:-0}"
+readonly SNYK_DRY_RUN="${SNYK_DRY_RUN:-1}"
 
 die() {
   printf '%s\n' "$*" >&2

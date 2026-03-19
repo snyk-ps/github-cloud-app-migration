@@ -38,7 +38,7 @@ chmod +x clone-github-cloud-app-to-group-orgs.sh
 | `SNYK_API_BASE` | `https://api.snyk.io/v1` | Override for other regions, e.g. `https://api.eu.snyk.io/v1`. |
 | `SNYK_INTEGRATION_TYPE` | `github-cloud-app` | Path segment used with `GET /org/{orgId}/integrations/{type}` to resolve the integration id when `SNYK_INTEGRATION_ID` is unset. |
 | `SNYK_INTEGRATION_ID` | *(unset)* | If set, skips the lookup above; must be the integration’s public id in the source org. |
-| `SNYK_DRY_RUN` | `0` | Set to `1` to **not** call the clone endpoint; prints what would be posted for each destination org. The integration `GET` still runs; the group org list `GET` runs only when `SNYK_TARGET_ORG_IDS_FILE` is unset. |
+| `SNYK_DRY_RUN` | `1` | Set to `0` to call the clone endpoint; prints what would be posted for each destination org. The integration `GET` still runs; the group org list `GET` runs only when `SNYK_TARGET_ORG_IDS_FILE` is unset. |
 | `SNYK_PER_PAGE` | `100` | Page size for listing group orgs (v1 maximum is 100). |
 
 Treat `SNYK_API_KEY` as a secret: avoid committing it, and prefer a password manager or `read -s` over leaving it in shell history.
@@ -57,7 +57,7 @@ Treat `SNYK_API_KEY` as a secret: avoid committing it, and prefer a password man
    SNYK_DRY_RUN=1 ./clone-github-cloud-app-to-group-orgs.sh
    ```
 
-3. Run without `SNYK_DRY_RUN` (or with `SNYK_DRY_RUN=0`) to perform the clones:
+3. Run with `SNYK_DRY_RUN=0` to perform the clones:
 
    ```bash
    ./clone-github-cloud-app-to-group-orgs.sh
