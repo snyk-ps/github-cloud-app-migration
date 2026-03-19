@@ -1,6 +1,6 @@
 # GitHub Cloud App — group-wide integration clone
 
-This repository contains a small Bash utility that clones an existing **GitHub Cloud App** org integration from a **source Snyk Organization** to **every other Organization** in a **Snyk Group**, using the Snyk **v1 Integrations** API (`POST …/integrations/{integrationId}/clone`).
+This repository contains a small Bash utility that clones an existing **GitHub Cloud App** org integration from a **source Snyk Organization** to **other Snyk Organizations**, using the Snyk **v1 Integrations** API (`POST …/integrations/{integrationId}/clone`). Destinations are either **all orgs in a Snyk Group** (via the Groups API) or **org IDs listed in a file**.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ This repository contains a small Bash utility that clones an existing **GitHub C
 
 | File | Purpose |
 |------|---------|
-| [`clone-github-cloud-app-to-group-orgs.sh`](./clone-github-cloud-app-to-group-orgs.sh) | Lists orgs in a group, resolves the GitHub Cloud App integration in the source org, then clones it to each other org. |
+| [`clone-github-cloud-app-to-group-orgs.sh`](./clone-github-cloud-app-to-group-orgs.sh) | Resolves the GitHub Cloud App integration in the source org, then clones it to each destination org — either every org in a group (API) or org IDs listed in a file. |
 
 Make it executable once:
 
@@ -27,17 +27,18 @@ chmod +x clone-github-cloud-app-to-group-orgs.sh
 | Variable | Description |
 |----------|-------------|
 | `SNYK_API_KEY` | Snyk API token. Sent as `Authorization: token …` to the v1 API. |
-| `SNYK_GROUP_ID` | Public ID of the Snyk Group whose organizations should receive the clone. |
 | `SNYK_SOURCE_ORG_ID` | Public ID of the organization that **already** has the GitHub Cloud App integration configured (the clone **source**). |
+| `SNYK_GROUP_ID` | Public ID of the Snyk Group used to **discover** destination orgs via the API. **Not required** if `SNYK_TARGET_ORG_IDS_FILE` is set. |
 
 ### Optional
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `SNYK_TARGET_ORG_IDS_FILE` | *(unset)* | Path to a text file: one destination org public ID per line. Blank lines and `#` comments are ignored; leading/trailing whitespace is trimmed. When set, the script does **not** call `GET /group/{groupId}/orgs` — only orgs from the file are targets. |
 | `SNYK_API_BASE` | `https://api.snyk.io/v1` | Override for other regions, e.g. `https://api.eu.snyk.io/v1`. |
 | `SNYK_INTEGRATION_TYPE` | `github-cloud-app` | Path segment used with `GET /org/{orgId}/integrations/{type}` to resolve the integration id when `SNYK_INTEGRATION_ID` is unset. |
 | `SNYK_INTEGRATION_ID` | *(unset)* | If set, skips the lookup above; must be the integration’s public id in the source org. |
-| `SNYK_DRY_RUN` | `0` | Set to `1` to **not** call the clone endpoint; prints what would be posted for each destination org. Discovery (`GET` group orgs, `GET` integration) still runs. |
+| `SNYK_DRY_RUN` | `0` | Set to `1` to **not** call the clone endpoint; prints what would be posted for each destination org. The integration `GET` still runs; the group org list `GET` runs only when `SNYK_TARGET_ORG_IDS_FILE` is unset. |
 | `SNYK_PER_PAGE` | `100` | Page size for listing group orgs (v1 maximum is 100). |
 
 Treat `SNYK_API_KEY` as a secret: avoid committing it, and prefer a password manager or `read -s` over leaving it in shell history.
@@ -68,7 +69,27 @@ One-liner style:
 SNYK_API_KEY="…" SNYK_GROUP_ID="…" SNYK_SOURCE_ORG_ID="…" ./clone-github-cloud-app-to-group-orgs.sh
 ```
 
-The script **skips** the source org (it only clones **to** other orgs in the group).
+The script **skips** the source org (it only clones **to** other orgs).
+
+**Destination list from a file** (no group org listing API call):
+
+```bash
+export SNYK_API_KEY="…"
+export SNYK_SOURCE_ORG_ID="…"
+export SNYK_TARGET_ORG_IDS_FILE="./target-orgs.txt"
+
+SNYK_DRY_RUN=1 ./clone-github-cloud-app-to-group-orgs.sh
+```
+
+Example `target-orgs.txt`:
+
+```text
+# Production orgs
+aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+```
+
+`SNYK_GROUP_ID` is omitted in that mode; you are responsible for ensuring each ID is a valid destination org your token can edit.
 
 ## Exit status
 

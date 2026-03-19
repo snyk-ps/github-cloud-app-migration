@@ -4,11 +4,14 @@
 # other Organization in a Snyk Group using the v1 Integrations API.
 #
 # Required environment:
-#   SNYK_API_KEY      Personal or service API token (Authorization: token …)
-#   SNYK_GROUP_ID     Group public ID whose orgs will receive the clone
-#   SNYK_SOURCE_ORG_ID  Org that already has the GitHub Cloud App integration
+#   SNYK_API_KEY         Personal or service API token (Authorization: token …)
+#   SNYK_SOURCE_ORG_ID   Org that already has the GitHub Cloud App integration
+#   SNYK_GROUP_ID        Required unless SNYK_TARGET_ORG_IDS_FILE is set — group whose orgs receive the clone
 #
 # Optional environment:
+#   SNYK_TARGET_ORG_IDS_FILE  If set, path to a file of destination org public IDs (one per line).
+#                             Blank lines and lines starting with # are ignored. Whitespace is trimmed.
+#                             When set, orgs are taken only from this file (no GET /group/.../orgs).
 #   SNYK_API_BASE         Default: https://api.snyk.io/v1 (set for other regions, e.g. https://api.eu.snyk.io/v1)
 #   SNYK_INTEGRATION_TYPE Default: github-cloud-app (path segment for GET integration-by-type)
 #   SNYK_INTEGRATION_ID   If set, skip lookup; must be the integration public ID in the source org
@@ -60,8 +63,10 @@ require_cmd curl
 require_cmd jq
 
 [[ -n "${SNYK_API_KEY:-}" ]] || die "SNYK_API_KEY is not set."
-[[ -n "${SNYK_GROUP_ID:-}" ]] || die "SNYK_GROUP_ID is not set."
 [[ -n "${SNYK_SOURCE_ORG_ID:-}" ]] || die "SNYK_SOURCE_ORG_ID is not set."
+if [[ -z "${SNYK_TARGET_ORG_IDS_FILE:-}" ]]; then
+  [[ -n "${SNYK_GROUP_ID:-}" ]] || die "SNYK_GROUP_ID is not set (or set SNYK_TARGET_ORG_IDS_FILE to supply destination org IDs)."
+fi
 
 integration_id="${SNYK_INTEGRATION_ID:-}"
 if [[ -z "$integration_id" ]]; then
@@ -76,7 +81,7 @@ else
   printf 'Using SNYK_INTEGRATION_ID: %s\n' "$integration_id"
 fi
 
-collect_org_ids() {
+collect_org_ids_from_group() {
   local offset=0
   while true; do
     local resp
@@ -98,11 +103,39 @@ collect_org_ids() {
   done
 }
 
+# Trim leading and trailing whitespace (POSIX character class).
+trim_space() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+collect_org_ids_from_file() {
+  local path="$1"
+  [[ -f "$path" ]] || die "SNYK_TARGET_ORG_IDS_FILE is not a regular file: $path"
+  [[ -r "$path" ]] || die "SNYK_TARGET_ORG_IDS_FILE is not readable: $path"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="$(trim_space "$line")"
+    [[ -z "$line" ]] && continue
+    [[ "$line" == \#* ]] && continue
+    printf '%s\n' "$line"
+  done < "$path"
+}
+
 all_org_ids=()
-while IFS= read -r oid; do
-  [[ -n "$oid" ]] && all_org_ids+=("$oid")
-done < <(collect_org_ids | sort -u)
-[[ ${#all_org_ids[@]} -gt 0 ]] || die "No organizations returned for this group."
+if [[ -n "${SNYK_TARGET_ORG_IDS_FILE:-}" ]]; then
+  printf 'Loading destination org IDs from %q\n' "$SNYK_TARGET_ORG_IDS_FILE"
+  while IFS= read -r oid; do
+    [[ -n "$oid" ]] && all_org_ids+=("$oid")
+  done < <(collect_org_ids_from_file "$SNYK_TARGET_ORG_IDS_FILE" | sort -u)
+  [[ ${#all_org_ids[@]} -gt 0 ]] || die "No org IDs found in SNYK_TARGET_ORG_IDS_FILE after skipping blanks and comments."
+else
+  while IFS= read -r oid; do
+    [[ -n "$oid" ]] && all_org_ids+=("$oid")
+  done < <(collect_org_ids_from_group | sort -u)
+  [[ ${#all_org_ids[@]} -gt 0 ]] || die "No organizations returned for this group."
+fi
 
 skipped=0
 cloned=0
