@@ -16,6 +16,8 @@ This repository contains utilities to clone an existing **GitHub Cloud App** org
 | [`clone-github-cloud-app-to-group-orgs.sh`](./clone-github-cloud-app-to-group-orgs.sh) | Resolves the GitHub Cloud App integration in the source org, then clones it to each destination org — either every org in a group (API) or org IDs listed in a file. |
 | [`clone_github_cloud_app_to_group_orgs.py`](./clone_github_cloud_app_to_group_orgs.py) | Same behavior as the shell script; accepts `--target-org-ids-file` / `-f` and other options on the command line. |
 
+**Python usage (end-user guide):** [README_PYTHON.md](./README_PYTHON.md)
+
 Make them executable once:
 
 ```bash
