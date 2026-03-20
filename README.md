@@ -1,23 +1,25 @@
 # GitHub Cloud App — group-wide integration clone
 
-This repository contains a small Bash utility that clones an existing **GitHub Cloud App** org integration from a **source Snyk Organization** to **other Snyk Organizations**, using the Snyk **v1 Integrations** API (`POST …/integrations/{integrationId}/clone`). Destinations are either **all orgs in a Snyk Group** (via the Groups API) or **org IDs listed in a file**.
+This repository contains utilities to clone an existing **GitHub Cloud App** org integration from a **source Snyk Organization** to **other Snyk Organizations**, using the Snyk **v1 Integrations** API (`POST …/integrations/{integrationId}/clone`). Destinations are either **all orgs in a Snyk Group** (via the Groups API) or **org IDs listed in a file**.
 
 ## Prerequisites
 
 - **Snyk Enterprise** access and an API token with permission to call the v1 API ([authentication](https://docs.snyk.io/snyk-api/v1-api)).
 - **Groups** (and related org administration) enabled where Snyk requires it for integration cloning—see [Clone an integration across your Snyk Organizations](https://docs.snyk.io/snyk-platform-administration/snyk-broker/classic-broker/clone-an-integration-across-your-snyk-organizations) for product context.
-- Shell tools: **`curl`**, **`jq`**.
+- Shell tools: **`curl`**, **`jq`** (Bash script only).
+- **Python 3.9+** for the Python script (stdlib only — no `pip` install).
 
-## Script
+## Scripts
 
 | File | Purpose |
 |------|---------|
 | [`clone-github-cloud-app-to-group-orgs.sh`](./clone-github-cloud-app-to-group-orgs.sh) | Resolves the GitHub Cloud App integration in the source org, then clones it to each destination org — either every org in a group (API) or org IDs listed in a file. |
+| [`clone_github_cloud_app_to_group_orgs.py`](./clone_github_cloud_app_to_group_orgs.py) | Same behavior as the shell script; accepts `--target-org-ids-file` / `-f` and other options on the command line. |
 
-Make it executable once:
+Make them executable once:
 
 ```bash
-chmod +x clone-github-cloud-app-to-group-orgs.sh
+chmod +x clone-github-cloud-app-to-group-orgs.sh clone_github_cloud_app_to_group_orgs.py
 ```
 
 ## Environment variables
@@ -38,7 +40,7 @@ chmod +x clone-github-cloud-app-to-group-orgs.sh
 | `SNYK_API_BASE` | `https://api.snyk.io/v1` | Override for other regions, e.g. `https://api.eu.snyk.io/v1`. |
 | `SNYK_INTEGRATION_TYPE` | `github-cloud-app` | Path segment used with `GET /org/{orgId}/integrations/{type}` to resolve the integration id when `SNYK_INTEGRATION_ID` is unset. |
 | `SNYK_INTEGRATION_ID` | *(unset)* | If set, skips the lookup above; must be the integration’s public id in the source org. |
-| `SNYK_DRY_RUN` | `1` | Set to `0` to call the clone endpoint; prints what would be posted for each destination org. The integration `GET` still runs; the group org list `GET` runs only when `SNYK_TARGET_ORG_IDS_FILE` is unset. |
+| `SNYK_DRY_RUN` | `0` | Set to `1` to **not** call the clone endpoint; prints what would be posted for each destination org. The integration `GET` still runs; the group org list `GET` runs only when `SNYK_TARGET_ORG_IDS_FILE` is unset. |
 | `SNYK_PER_PAGE` | `100` | Page size for listing group orgs (v1 maximum is 100). |
 
 Treat `SNYK_API_KEY` as a secret: avoid committing it, and prefer a password manager or `read -s` over leaving it in shell history.
@@ -90,6 +92,23 @@ bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
 ```
 
 `SNYK_GROUP_ID` is omitted in that mode; you are responsible for ensuring each ID is a valid destination org your token can edit.
+
+### Python (`clone_github_cloud_app_to_group_orgs.py`)
+
+Configuration can come from the environment (same variables as the shell script) and/or flags. **`--target-org-ids-file` / `-f`** sets the org list file path (equivalent to `SNYK_TARGET_ORG_IDS_FILE`); if omitted, the env var is used when set.
+
+```bash
+export SNYK_API_KEY="…"
+export SNYK_SOURCE_ORG_ID="…"
+
+./clone_github_cloud_app_to_group_orgs.py --dry-run \
+  --group-id "…"
+
+./clone_github_cloud_app_to_group_orgs.py --no-dry-run \
+  -f ./target-orgs.txt
+```
+
+Use `./clone_github_cloud_app_to_group_orgs.py --help` for all options (`--api-base`, `--integration-type`, `--integration-id`, `--per-page`, `--source-org-id`, `--group-id`, `--api-key`, etc.).
 
 ## Exit status
 
